@@ -3,6 +3,7 @@ const restify = require('restify');
 const request = require('supertest');
 const signature = require('cookie-signature');
 const cookieParser = require('cookie-parser');
+const Teamwork = require('@hapi/teamwork');
 
 const {
   celebrate,
@@ -144,11 +145,9 @@ describe('validations', () => {
   });
 });
 
-describe.skip('update req values', () => {
-  test('req.headers', async () => {
-    expect.assertions(1);
+describe('update req values', () => {
+  test('req.headers', async (done) => {
     const server = Server();
-    const team = new Teamwork();
 
     server.get('/', celebrate({
       [Segments.HEADERS]: {
@@ -159,75 +158,71 @@ describe.skip('update req values', () => {
       allowUnknown: true,
     }), (req) => {
       delete req.headers.host; // this can change computer to computer, so just remove it
-      team.attend(req);
-    });
+      const { headers } = req;
 
-    server.inject({
-      method: 'GET',
-      url: '/',
-      [Segments.HEADERS]: {
+      expect(headers).toEqual({
         accept: 'application/json',
-      },
+        'accept-encoding': 'gzip, deflate',
+        connection: 'close',
+        'user-agent': 'node-superagent/3.8.3',
+        'secret-header': '@@@@@@',
+      });
+
+      return done();
     });
 
-    const { headers } = await team.work;
-
-    expect(headers).toEqual({
-      accept: 'application/json',
-      'user-agent': 'shot',
-      'secret-header': '@@@@@@',
-    });
+    await request(server)
+      .get('/')
+      .set('accept', 'application/json')
+      .end();
   });
 
-  test('req.params', async () => {
-    expect.assertions(1);
+  test('req.params', async (done) => {
     const server = Server();
-    const team = new Teamwork();
 
     server.get('/user/:id', celebrate({
       [Segments.PARAMS]: {
         id: Joi.string().uppercase(),
       },
-    }), team.attend.bind(team));
+    }), (req) => {
+      const { params } = req;
+      expect(params.id).toBe('ADAM');
 
-    server.inject({
-      method: 'get',
-      url: '/user/adam',
+      return done();
     });
 
-    const { params } = await team.work;
-
-    expect(params.id).toBe('ADAM');
+    request(server)
+      .get('/user/adam')
+      .end();
   });
 
-  test('req.query', async () => {
-    expect.assertions(1);
+  test('req.query', async (done) => {
     const server = Server();
-    const team = new Teamwork();
 
     server.get('/', celebrate({
       [Segments.QUERY]: Joi.object().keys({
         name: Joi.string().uppercase(),
         page: Joi.number().default(1),
       }),
-    }), team.attend.bind(team));
+    }), (req) => {
+      const { query } = req;
 
-    server.inject({
-      url: '/?name=john',
+      expect(query).toEqual({
+        name: 'JOHN',
+        page: 1,
+      });
+
+      return done();
     });
 
-    const { query } = await team.work;
-
-    expect(query).toEqual({
-      name: 'JOHN',
-      page: 1,
-    });
+    request(server)
+      .get('/')
+      .query({ name: 'john' })
+      .end();
   });
 
-  test('req.body', async () => {
-    expect.assertions(1);
+  test('req.body', async (done) => {
     const server = Server();
-    const team = new Teamwork();
 
     server.post('/', celebrate({
       [Segments.BODY]: {
@@ -235,31 +230,32 @@ describe.skip('update req values', () => {
         last: Joi.string().default('Smith'),
         role: Joi.string().uppercase(),
       },
-    }), team.attend.bind(team));
+    }), (req) => {
+      const { body } = req;
 
-    server.inject({
-      url: '/',
-      method: 'post',
-      payload: {
+      expect(body).toEqual({
+        first: 'john',
+        role: 'ADMIN',
+        last: 'Smith',
+      });
+
+      return done();
+    });
+
+    request(server)
+      .post('/')
+      .send({
         first: 'john',
         role: 'admin',
-      },
-    });
-
-    const { body } = await team.work;
-    expect(body).toEqual({
-      first: 'john',
-      role: 'ADMIN',
-      last: 'Smith',
-    });
+      })
+      .end();
   });
 });
 
-describe.skip('reqContext', () => {
-  test('passes req as Joi context during validation', async () => {
+describe('reqContext', () => {
+  test('passes req as Joi context during validation', async (done) => {
     expect.assertions(2);
     const server = Server();
-    const team = new Teamwork({ meetings: 2 });
 
     server.post('/:userId', celebrate({
       [Segments.BODY]: {
@@ -271,27 +267,22 @@ describe.skip('reqContext', () => {
     }, null, {
       reqContext: true,
     }), (req, res) => {
-      team.attend(req);
-      res.send();
+      expect(req.body.id).toEqual(req.params.userId);
+      expect(res.statusCode).toBe(200);
+
+      return done();
     });
 
-    server.inject({
-      method: 'POST',
-      url: '/12345',
-      payload: {
+    request(server)
+      .post('/12345')
+      .send({
         id: 12345,
-      },
-    }, team.attend.bind(team));
-
-    const [req, res] = await team.work;
-    expect(req.body.id).toEqual(req.params.userId);
-    expect(res.statusCode).toBe(200);
+      })
+      .end();
   });
 
-  test('fails validation based on req values', async () => {
-    expect.assertions(2);
+  test('fails validation based on req values', async (done) => {
     const server = Server();
-    const team = new Teamwork();
     const next = jest.fn();
 
     server.post('/:userId', celebrate({
@@ -303,20 +294,17 @@ describe.skip('reqContext', () => {
       },
     }, null, {
       reqContext: true,
-    }), next);
+    }));
 
-    server.inject({
-      method: 'POST',
-      url: '/123',
-      payload: {
+    request(server)
+      .post('/123')
+      .send({
         id: 12345,
-      },
-    }, team.attend.bind(team));
-
-    const res = await team.work;
-
-    expect(res.statusCode).toBe(500);
-    expect(next).not.toHaveBeenCalled();
+      })
+      .expect(() => {
+        expect(next).not.toHaveBeenCalled();
+      })
+      .expect(500, done);
   });
 });
 
