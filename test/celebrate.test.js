@@ -283,14 +283,10 @@ describe('errors()', () => {
     const handler = errors();
     const next = jest.fn();
     const res = {
-      status(statusCode) {
+      send(statusCode, err) {
         expect(statusCode).toBe(400);
-        return {
-          send(err) {
-            expect(err).toMatchSnapshot();
-            expect(next).not.toHaveBeenCalled();
-          },
-        };
+        expect(err).toMatchSnapshot();
+        expect(next).not.toHaveBeenCalled();
       },
     };
 
@@ -335,14 +331,10 @@ describe('errors()', () => {
     const handler = errors();
     const next = jest.fn();
     const res = {
-      status(statusCode) {
+      send(statusCode, err) {
         expect(statusCode).toBe(400);
-        return {
-          send(err) {
-            expect(err).toMatchSnapshot();
-            expect(next).not.toHaveBeenCalled();
-          },
-        };
+        expect(err).toMatchSnapshot();
+        expect(next).not.toHaveBeenCalled();
       },
     };
 
@@ -370,14 +362,10 @@ describe('errors()', () => {
     const handler = errors();
     const next = jest.fn();
     const res = {
-      status(statusCode) {
+      send(statusCode, err) {
         expect(statusCode).toBe(400);
-        return {
-          send(err) {
-            expect(err).toMatchSnapshot();
-            expect(next).not.toHaveBeenCalled();
-          },
-        };
+        expect(err).toMatchSnapshot();
+        expect(next).not.toHaveBeenCalled();
       },
     };
 
@@ -402,15 +390,11 @@ describe('errors()', () => {
     const handler = errors({ statusCode });
     const next = jest.fn();
     const res = {
-      status(code) {
+      send(code, err) {
         expect(code).toBe(statusCode);
-        return {
-          send(err) {
-            expect(err).toHaveProperty('statusCode', 409);
-            expect(err).toMatchSnapshot();
-            expect(next).not.toHaveBeenCalled();
-          },
-        };
+        expect(err).toHaveProperty('statusCode', 409);
+        expect(err).toMatchSnapshot();
+        expect(next).not.toHaveBeenCalled();
       },
     };
 
