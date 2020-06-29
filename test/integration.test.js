@@ -3,7 +3,10 @@ const restify = require('restify');
 const request = require('supertest');
 const signature = require('cookie-signature');
 const cookieParser = require('cookie-parser');
-const Teamwork = require('@hapi/teamwork');
+const async = require('async');
+const {
+  random,
+} = require('faker');
 
 const {
   celebrate,
@@ -275,9 +278,7 @@ describe('reqContext', () => {
 
     request(server)
       .post('/12345')
-      .send({
-        id: 12345,
-      })
+      .send({ id: 12345 })
       .end();
   });
 
@@ -298,9 +299,7 @@ describe('reqContext', () => {
 
     request(server)
       .post('/123')
-      .send({
-        id: 12345,
-      })
+      .send({ id: 12345 })
       .expect(() => {
         expect(next).not.toHaveBeenCalled();
       })
@@ -308,9 +307,8 @@ describe('reqContext', () => {
   });
 });
 
-describe.skip('multiple-runs', () => {
-  test('continues to set default values', () => {
-    expect.assertions(10);
+describe('multiple-runs', () => {
+  test('continues to set default values', (done) => {
     const server = Server();
 
     server.get('/', celebrate({
@@ -321,58 +319,40 @@ describe.skip('multiple-runs', () => {
     }, {
       allowUnknown: true,
     }), (req, res) => {
-      delete req.headers.host; // this can change computer to computer, so just remove it
+      delete req.headers.host;
       res.send(req.headers);
     });
 
-    const attempts = Array.from({ length: 10 }, () => new Promise((resolve) => server.inject({
-      method: 'GET',
-      url: '/',
-      headers: {
-        accept: 'application/json',
-      },
-    }, (r) => {
-      resolve(JSON.parse(r.payload));
-    })));
+    const expectedResponse = {
+      accept: 'application/json',
+      'accept-encoding': 'gzip, deflate',
+      connection: 'close',
+      'user-agent': 'node-superagent/3.8.3',
+      'secret-header': '@@@@@@',
+    };
 
-    return Promise.all(attempts).then((v) => {
-      v.forEach((headers) => {
-        expect(headers).toEqual({
-          accept: 'application/json',
-          'user-agent': 'shot',
-          'secret-header': '@@@@@@',
-        });
-      });
-    });
+    async.series([
+      function assertion(cb) { request(server).get('/').set('accept', 'application/json').expect(expectedResponse, cb); },
+      function assertion(cb) { request(server).get('/').set('accept', 'application/json').expect(expectedResponse, cb); },
+      function assertion(cb) { request(server).get('/').set('accept', 'application/json').expect(expectedResponse, cb); },
+    ], done);
   });
 
-  test('continues to validate values', () => {
-    expect.assertions(10);
+  test('continues to validate values', (done) => {
     const server = Server();
-
     server.post('/', celebrate({
       [Segments.BODY]: {
         name: Joi.string().required(),
       },
-    }));
-
-    const attempts = Array.from({ length: 10 }, () => new Promise((resolve) => server.inject({
-      method: 'POST',
-      url: '/',
-      payload: {
-        age: random.number(),
-      },
-      headers: {
-        accept: 'application/json',
-      },
-    }, (r) => {
-      resolve(r.statusCode);
-    })));
-
-    return Promise.all(attempts).then((v) => {
-      v.forEach((statusCode) => {
-        expect(statusCode).toEqual(500);
-      });
+    }), (req, res) => {
+      res.send(200);
     });
+
+    async.series([
+      function assertion(cb) { request(server).post('/').send({ age: random.number() }).expect(500, cb); },
+      function assertion(cb) { request(server).post('/').send({ name: 'ana' }).expect(200, cb); },
+      function assertion(cb) { request(server).post('/').send({ age: random.number() }).expect(500, cb); },
+
+    ], done);
   });
 });
