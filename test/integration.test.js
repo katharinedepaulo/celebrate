@@ -159,7 +159,7 @@ describe('update req values', () => {
       },
     }, {
       allowUnknown: true,
-    }), (req) => {
+    }), (req, res) => {
       delete req.headers.host; // this can change computer to computer, so just remove it
       const { headers } = req;
 
@@ -170,14 +170,14 @@ describe('update req values', () => {
         'user-agent': 'node-superagent/3.8.3',
         'secret-header': '@@@@@@',
       });
-
-      return done();
+      res.send(200);
     });
 
-    await request(server)
+    request(server)
       .get('/')
       .set('accept', 'application/json')
-      .end();
+      .expect(200)
+      .end(done);
   });
 
   test('req.params', async (done) => {
@@ -187,16 +187,16 @@ describe('update req values', () => {
       [Segments.PARAMS]: {
         id: Joi.string().uppercase(),
       },
-    }), (req) => {
+    }), (req, res) => {
       const { params } = req;
       expect(params.id).toBe('ADAM');
-
-      return done();
+      res.send(200);
     });
 
     request(server)
       .get('/user/adam')
-      .end();
+      .expect(200)
+      .end(done);
   });
 
   test('req.query', async (done) => {
@@ -207,7 +207,7 @@ describe('update req values', () => {
         name: Joi.string().uppercase(),
         page: Joi.number().default(1),
       }),
-    }), (req) => {
+    }), (req, res) => {
       const { query } = req;
 
       expect(query).toEqual({
@@ -215,13 +215,14 @@ describe('update req values', () => {
         page: 1,
       });
 
-      return done();
+      res.send(200);
     });
 
     request(server)
       .get('/')
       .query({ name: 'john' })
-      .end();
+      .expect(200)
+      .end(done);
   });
 
   test('req.body', async (done) => {
@@ -233,16 +234,14 @@ describe('update req values', () => {
         last: Joi.string().default('Smith'),
         role: Joi.string().uppercase(),
       },
-    }), (req) => {
+    }), (req, res) => {
       const { body } = req;
-
       expect(body).toEqual({
         first: 'john',
         role: 'ADMIN',
         last: 'Smith',
       });
-
-      return done();
+      res.send(200);
     });
 
     request(server)
@@ -251,13 +250,13 @@ describe('update req values', () => {
         first: 'john',
         role: 'admin',
       })
-      .end();
+      .expect(200)
+      .end(done);
   });
 });
 
 describe('reqContext', () => {
   test('passes req as Joi context during validation', async (done) => {
-    expect.assertions(2);
     const server = Server();
 
     server.post('/:userId', celebrate({
@@ -271,15 +270,13 @@ describe('reqContext', () => {
       reqContext: true,
     }), (req, res) => {
       expect(req.body.id).toEqual(req.params.userId);
-      expect(res.statusCode).toBe(200);
-
-      return done();
+      res.send(200);
     });
 
     request(server)
       .post('/12345')
       .send({ id: 12345 })
-      .end();
+      .expect(200, done);
   });
 
   test('fails validation based on req values', async (done) => {
